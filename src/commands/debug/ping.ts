@@ -16,7 +16,7 @@ const meta = new SlashCommandBuilder()
 export default command(meta, async ({ interaction, log }) => {
   const message = interaction.options.getString("message", false) ?? "Heyo! How's it going?";
 
-  log(`echoed |${message}| to ${interaction.user.tag}.`);
+  log(`echoed [${message}] to ${interaction.user.tag}.`);
 
   return await interaction.reply({
     ephemeral: true,

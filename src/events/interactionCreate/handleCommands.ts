@@ -19,6 +19,7 @@ export default event("interactionCreate", async ({ discordClient, log }, interac
     await command.exec({ discordClient, interaction, log: namedCommandsLogger(interaction.commandName) });
   } catch (error) {
     log("couldn't execute command: " + interaction.commandName, "error");
+    log(error as string, "error");
 
     if (interaction.deferred) {
       return await interaction.editReply({

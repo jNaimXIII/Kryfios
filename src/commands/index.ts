@@ -1,3 +1,4 @@
 import debug from "./debug";
+import MAL from "./MAL";
 
-export default [debug];
+export default [debug, MAL];
