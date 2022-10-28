@@ -10,9 +10,7 @@ export function event<T extends EventKeys>(name: T, exec: EventExec<T>, options?
   };
 }
 
-// FIXME: Remove explicit any.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function registerEvents(discordClient: Client, events: Event<any>[]): void {
+export function registerEvents(discordClient: Client, events: Event[]): void {
   for (const event of events) {
     discordClient[event.options?.once ? "once" : "on"](event.name, async (...args) => {
       const props = {

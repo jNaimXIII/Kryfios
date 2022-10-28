@@ -8,14 +8,17 @@ export interface EventProps {
 
 export type EventKeys = keyof ClientEvents;
 
-export type EventExec<T extends EventKeys> = (props: EventProps, ...args: ClientEvents[T]) => Awaitable<unknown>;
+export type EventExec<T extends EventKeys = EventKeys> = (
+  props: EventProps,
+  ...args: ClientEvents[T]
+) => Awaitable<unknown>;
 
 export interface EventOptions {
   once?: boolean;
   disabled?: boolean;
 }
 
-export interface Event<T extends EventKeys> {
+export interface Event<T extends EventKeys = EventKeys> {
   name: T;
   exec: EventExec<T>;
   options?: EventOptions;
