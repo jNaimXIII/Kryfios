@@ -3,6 +3,7 @@ import { Keys } from "../types";
 const keys: Keys = {
   discordClientToken: process.env.DISCORD_CLIENT_TOKEN ?? "",
   guildId: process.env.GUILD_ID ?? "",
+  malUrl: process.env.MAL_URL ?? "",
   malApiUrl: process.env.MAL_API_URL ?? "",
   malClientId: process.env.MAL_CLIENT_ID ?? "",
 };

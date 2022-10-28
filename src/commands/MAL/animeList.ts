@@ -1,6 +1,6 @@
 import { EmbedBuilder, SlashCommandBuilder } from "discord.js";
-import { command, getAnimeList } from "../../utils";
-const MY_ANIME_LIST_URL = "https://myanimelist.net";
+import { command, getAnimeList, getAnimeListUrl, getAnimeUrl } from "../../utils";
+import { AnimeListDisplay, AnimeListFilter } from "../../types";
 
 const meta = new SlashCommandBuilder()
   .setName("animelist")
@@ -29,7 +29,7 @@ const meta = new SlashCommandBuilder()
   .addBooleanOption((option) => option.setName("private").setDescription("Only show results to you."))
   .addStringOption((option) =>
     option
-      .setName("view")
+      .setName("display")
       .setDescription("Choose how to display the results.")
       .addChoices({ name: "List", value: "list" }, { name: "Embed (not recommenced for large lists)", value: "embed" })
   )
@@ -43,18 +43,21 @@ const meta = new SlashCommandBuilder()
   );
 
 export default command(meta, async ({ interaction, log }) => {
-  const isPrivate = interaction.options.getBoolean("private", false);
-  await interaction.deferReply({ ephemeral: isPrivate as boolean });
+  const defaultDisplay: AnimeListDisplay = "list";
+  const defaultFilter: AnimeListFilter = "";
+  const defaultLimit = 100;
 
+  const isPrivate = interaction.options.getBoolean("private", false) ?? false;
   const username = interaction.options.getString("username", true).trim();
+  const limit = interaction.options.getNumber("limit", false) ?? defaultLimit;
+  const filter = interaction.options.getString("filter", false) ?? defaultFilter;
+  const display = (interaction.options.getString("display", false) ?? defaultDisplay) as AnimeListDisplay;
+
+  const animeListUrl = getAnimeListUrl(username);
 
   log("showing anime list of " + username, "info");
 
-  const defaultLimit = 100;
-  const limit = interaction.options.getNumber("limit", false) ?? defaultLimit;
-
-  const defaultFilter = "";
-  const filter = interaction.options.getString("filter", false) ?? defaultFilter;
+  await interaction.deferReply({ ephemeral: isPrivate as boolean });
 
   const response = await getAnimeList(username, limit, filter);
 
@@ -63,76 +66,46 @@ export default command(meta, async ({ interaction, log }) => {
     return await interaction.followUp("Could not find the list for that user.");
   }
 
-  type View = "list" | "embed";
+  switch (display) {
+    case "list":
+      return displayAsList();
+    case "embed":
+      return displayAsEmbed();
+  }
 
-  const defaultView = "list";
-  const view = (interaction.options.getString("view", false) ?? defaultView) as View;
-
-  if (view === "list") {
-    const meta = response.data.map((anime) => {
-      const title = anime.title;
-      const link = MY_ANIME_LIST_URL + "/" + anime.id;
-
-      return { title, link };
+  async function displayAsList() {
+    const meta = response.data.map(({ id: animeId, title: animeTitle }) => {
+      const animeUrl = getAnimeUrl(animeId);
+      return { animeTitle, animeUrl };
     });
 
     const listItems: string[][] = [[]];
     let currentStringLength = 0;
-    let currentStringIndex = 0;
-    meta.forEach((anime) => {
+    let currentStringArrayIndex = 0;
+    meta.forEach(({ animeTitle, animeUrl }) => {
       if (currentStringLength > 3800) {
-        currentStringIndex++;
+        currentStringArrayIndex++;
         currentStringLength = 0;
         listItems.push([]);
       }
-      listItems[currentStringIndex].push(`[${anime.title}](${anime.link})\n`);
-      currentStringLength = listItems[currentStringIndex].join("").length;
+      listItems[currentStringArrayIndex].push(`[${animeTitle}](${animeUrl})\n`);
+      currentStringLength = listItems[currentStringArrayIndex].join("").length;
     });
 
-    if (listItems.length === 1) {
-      const embed = new EmbedBuilder()
-        .setTitle(`${username}'s Anime List!`)
-        .setDescription(listItems[0].join(""))
-        .setURL(MY_ANIME_LIST_URL + "/animelist/" + username);
+    const embeds = listItems.map((list) => new EmbedBuilder().setDescription(list.join("")));
+    embeds.unshift(new EmbedBuilder().setTitle(`${username}'s Anime List!`).setURL(animeListUrl));
 
-      return await interaction.followUp({ embeds: [embed] });
-    }
-
-    const embeds = listItems.map((list) => {
-      return new EmbedBuilder()
-        .setTitle(`${username}'s Anime List!`)
-        .setDescription(list.join(""))
-        .setURL(MY_ANIME_LIST_URL + "/animelist/" + username);
-    });
-
-    return embeds.forEach(async (embed) => await interaction.followUp({ embeds: [embed] }));
+    while (embeds.length) await interaction.followUp({ embeds: embeds.splice(0, 10) });
   }
 
-  if (view === "embed") {
-    const embeds = response.data.map((anime) => {
-      return new EmbedBuilder()
-        .setTitle(anime.title)
-        .setImage(anime.main_picture.large)
-        .setURL(MY_ANIME_LIST_URL + "/" + anime.id);
+  async function displayAsEmbed() {
+    const embeds = response.data.map(({ id: animeId, title: animeTitle, main_picture: { large: animeBanner } }) => {
+      const animeUrl = getAnimeUrl(animeId);
+      return new EmbedBuilder().setTitle(animeTitle).setImage(animeBanner).setURL(animeUrl);
     });
 
-    embeds.unshift(
-      new EmbedBuilder().setTitle(`${username}'s Anime List!`).setURL(MY_ANIME_LIST_URL + "/animelist/" + username)
-    );
+    embeds.unshift(new EmbedBuilder().setTitle(`${username}'s Anime List!`).setURL(animeListUrl));
 
-    const sectionedEmbeds = [];
-    if (embeds.length > 10) {
-      while (embeds.length) {
-        sectionedEmbeds.push(embeds.splice(0, 10));
-      }
-
-      for (const partialEmbeds of sectionedEmbeds) {
-        await interaction.followUp({ embeds: partialEmbeds });
-      }
-
-      return;
-    }
-
-    return await interaction.followUp({ embeds });
+    while (embeds.length) await interaction.followUp({ embeds: embeds.splice(0, 10) });
   }
 });
